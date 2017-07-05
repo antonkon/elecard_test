@@ -87,6 +87,9 @@
 		<Unit filename="/media/radio/150b40d7-ede2-48e5-9e93-d81ede6c156c/work/elecard/ts1.1/main.c">
 			<Option target="ts1_1"/>
 		</Unit>
+		<Unit filename="/media/radio/150b40d7-ede2-48e5-9e93-d81ede6c156c/work/elecard/ts1.1/main.h">
+			<Option target="ts1_1"/>
+		</Unit>
 		<Unit filename="/media/radio/150b40d7-ede2-48e5-9e93-d81ede6c156c/work/elecard/ts1.1/CMakeLists.txt">
 			<Option virtualFolder="CMake Files\"/>
 		</Unit>
