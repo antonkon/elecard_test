@@ -4,8 +4,8 @@
 yuv png_in_yuv_pixel(uint8_t r, uint8_t g, uint8_t b) {
     yuv pix;
     pix.y = 0.299 * r + 0.587 * g + 0.114 * b;
-    pix.u = -0.14713 * r - 0.28886 * g + 0.436 * b + 128;
-    pix.v = 0.615 * r - 0.51499 * g - 0.10001 * b + 128;
+    pix.u = -0.169 * r - 0.331 * g + 0.500 * b;
+    pix.v = 0.500 * r - 0.419 * g - 0.081 * b;
     return pix;
 }
 
@@ -22,6 +22,10 @@ uint8_t *rgb_in_yuv(uint8_t *img_rgb, int32_t width, int32_t height) {
     yuv pix;
 
     uint8_t *img_yuv = (uint8_t *)malloc((size_t)(width * height * 3));
+    if (!img_yuv) {
+        printf("Ошибка при выделении памяти !\n");
+        return NULL;
+    }
 
     /**
      * Преобразование картинки из RGB в YUV
@@ -59,6 +63,7 @@ uint8_t *rgb_in_yuv(uint8_t *img_rgb, int32_t width, int32_t height) {
         }
     }
     fclose(f2);
+    f2 = NULL;
 
     return img_yuv;
 }
@@ -108,14 +113,28 @@ uint8_t * load_bmp(char *pic_name, int32_t width, int32_t height) {
 
     // Считывает (пропускаем) таблицу цветов
     uint8_t *color_header = (uint8_t *)malloc(66);
+    if (!color_header) {
+        printf("Ошибка при выделении памяти !\n");
+        fclose(f);
+        f = NULL;
+        return NULL;
+    }
     fread(color_header, 1, 66,f);
 
     // Выделяем память под картинку
     uint8_t *img_rgb = (uint8_t *)malloc((size_t)(bmPheader.biWidth * bmPheader.biHeight * 3));
-
+    if (!img_rgb) {
+        printf("Ошибка при выделении памяти !\n");
+        return NULL;
+    }
     // Считываем картинку, преобразовываем в rgb и переворачиваем
     int64_t i,j;
     uint8_t *tmp_rbg = (uint8_t *)malloc(sizeof(uint8_t)*3);
+    if (!tmp_rbg) {
+        printf("Ошибка при выделении памяти !\n");
+        return NULL;
+    }
+
     for (i=bmPheader.biHeight-1; i >= 0; i--)
         for (j=0; j < bmPheader.biWidth*3; j+=3) {
             fread(tmp_rbg, 1, 3, f);
@@ -125,8 +144,11 @@ uint8_t * load_bmp(char *pic_name, int32_t width, int32_t height) {
         }
 
     free(tmp_rbg);
+    tmp_rbg = NULL;
     fclose(f);
+    f = NULL;
     free(color_header);
+    color_header = NULL;
 
     return img_rgb;
 }
@@ -155,9 +177,10 @@ uint8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_st
     output_stream = fopen(output_name_stream,"wb");
     if (!output_stream) {
         printf("Ошибка при создании файла !\n");
+        fclose(input_stream);
+        input_stream = NULL;
         return 1;
     }
-
 
     /**
      * Переменные для кадра
@@ -166,7 +189,27 @@ uint8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_st
      * frame - преобразованный кадр
      */
     uint8_t *frame_tmp = (uint8_t *)malloc((size_t)(width*height*3));
+    if (!frame_tmp) {
+        printf("Ошибка при выделении памяти !\n");
+        fclose(input_stream);
+        input_stream = NULL;
+        fclose(output_stream);
+        output_stream = NULL;
+
+        return NULL;
+    }
     uint8_t *frame = (uint8_t *)malloc((size_t)(width*height*3));
+    if (!frame) {
+        printf("Ошибка при выделении памяти !\n");
+        free(frame_tmp);
+        frame_tmp = NULL;
+        fclose(input_stream);
+        input_stream = NULL;
+        fclose(output_stream);
+        output_stream = NULL;
+
+        return NULL;
+    }
 
     /**
      * Считывание кадра
@@ -258,9 +301,13 @@ uint8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_st
     }
 
     free(frame_tmp);
+    frame_tmp = NULL;
     free(frame);
+    frame = NULL;
     fclose(input_stream);
+    input_stream = NULL;
     fclose(output_stream);
+    output_stream = NULL;
     return 0;
 }
 
@@ -269,6 +316,14 @@ int main(int argc, char *argv[]) {
     /**
      * Обработка аргументов запуска
      *
+     * Проверка кол-во аргументов
+     */
+    if (argc < 7 || argc > 7) {
+        printf("Неверное число аргументов !\n");
+        return 0;
+    }
+
+    /**
      * Вывод справки
      */
     if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
@@ -279,14 +334,6 @@ int main(int argc, char *argv[]) {
                        "  -i \t\tНазвание входного потока(видео).\n"
                        "  -o \t\tНазвание выходного потока(видео).\n"
                        "  -h --help \tДанная справка.\n", argv[0]);
-        return 0;
-    }
-
-    /**
-     * Проверка кол-во аргументов
-     */
-    if (argc < 7 || argc > 7) {
-        printf("Неверное число аргументов !\n");
         return 0;
     }
 
@@ -358,7 +405,13 @@ int main(int argc, char *argv[]) {
      * Преобразование картинки в yuv
      */
     uint8_t *img_yuv = rgb_in_yuv(img_rgb, width, height);
-    if (!img_yuv) return 0;
+    if (!img_yuv) {
+        free(img_rgb);
+        img_rgb = NULL;
+
+        return 0;
+    }
+
 
     /**
      * Обработка видео потока (вставка картинки)
@@ -368,7 +421,9 @@ int main(int argc, char *argv[]) {
     else printf("ОК.\n");
 
     free(img_rgb);
+    img_rgb = NULL;
     free(img_yuv);
+    img_yuv = NULL;
 
     return  0;
 }
