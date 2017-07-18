@@ -48,4 +48,5 @@ void prov_file(uint8_t *frame, int width, int height) {
         }
     }
     fclose(f2);
+    f2 = NULL;
 }

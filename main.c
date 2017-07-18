@@ -1,51 +1,49 @@
 #include "main.h"
+#include "debug.h"
 
-
-yuv png_in_yuv_pixel(uint8_t r, uint8_t g, uint8_t b) {
-    yuv pix;
-    pix.y = 0.299 * r + 0.587 * g + 0.114 * b;
-    pix.u = -0.169 * r - 0.331 * g + 0.500 * b;
-    pix.v = 0.500 * r - 0.419 * g - 0.081 * b;
-    return pix;
+/**
+ * Функция перечёта rgb в yuv
+ *
+ * @param r
+ * @param g
+ * @param b
+ * @param pix
+ */
+void png_in_yuv_pixel(uint8_t r, uint8_t g, uint8_t b, yuv *pix) {
+    pix->y = 0.299 * r + 0.587 * g + 0.114 * b;
+    pix->u = -0.169 * r - 0.331 * g + 0.500 * b;
+    pix->v = 0.500 * r - 0.419 * g - 0.081 * b;
+    return;
 }
 
 /**
  * Функция преобразования RGB в YUV формат
  *
  * @param img_rgb
+ * @param img_yuv
  * @param width
  * @param height
- * @return
  */
-uint8_t *rgb_in_yuv(uint8_t *img_rgb, int32_t width, int32_t height) {
+void rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t height) {
     int64_t i,j;
     yuv pix;
-
-    uint8_t *img_yuv = (uint8_t *)malloc((size_t)(width * height * 3));
-    if (!img_yuv) {
-        printf("Ошибка при выделении памяти !\n");
-        return NULL;
-    }
 
     /**
      * Преобразование картинки из RGB в YUV
      */
     for(i=0; i<height; i++) {
         for(j=0; j<width*3; j+=3){
-            pix = png_in_yuv_pixel(img_rgb[j+i*width*3], img_rgb[j+i*width*3+1], img_rgb[j+i*width*3+2]);
+            png_in_yuv_pixel(img_rgb[j+i*width*3], img_rgb[j+i*width*3+1], img_rgb[j+i*width*3+2], &pix);
             img_yuv[j+i*width*3] = pix.y;
             img_yuv[j+i*width*3+1] = pix.u;
             img_yuv[j+i*width*3+2] = pix.v;
         }
     }
 
-    /**
-     * Сохранение изображения в YUV формате в файл
-     */
-    FILE *f2 = fopen("image.yuv", "wb");
+    FILE *f2 = fopen("3.yuv", "wb");
     if (f2 == NULL) {
         printf("Ошибка создания файла !\n");
-        return NULL;
+        return;
     }
     for(i=0; i<height; i++) {
         for(j=0; j<width*3; j+=3){
@@ -65,27 +63,28 @@ uint8_t *rgb_in_yuv(uint8_t *img_rgb, int32_t width, int32_t height) {
     fclose(f2);
     f2 = NULL;
 
-    return img_yuv;
+    return;
 }
 
 /**
  * Функция загрузки картинки формата bmp в память
  *
+ * @param img_rgb
  * @param pic_name
  * @param width
  * @param height
- * @return
+ * @return 0
  */
-uint8_t * load_bmp(char *pic_name, int32_t width, int32_t height) {
-    // Открывает файл
+int8_t load_bmp(uint8_t *img_rgb, char *pic_name, int32_t width, int32_t height) {
+    /* Открывает файл */
     FILE *f;
     f = fopen(pic_name, "rb");
     if (!f) {
         printf("Ошибка при открытия файла !\n");
-        return NULL;
+        return 1;
     }
 
-    // Считываем заголовок файла
+    /* Считываем заголовок файла */
     BMPheader bmPheader;
     fread(&bmPheader.bfType,1, 2, f);
     fread(&bmPheader.byte16,1, 8, f);
@@ -97,42 +96,39 @@ uint8_t * load_bmp(char *pic_name, int32_t width, int32_t height) {
     fread(&bmPheader.byte32,1, 8, f);
     fread(&bmPheader.byte32,1, 8, f);
 
-    // Проверяем сигнатуру файла
+    /* Проверяем сигнатуру файла */
     if( bmPheader.bfType!=0x4d42 && bmPheader.bfType!=0x4349 && bmPheader.bfType!=0x5450 ) {
         printf("Файл не bmp формата !\n");
         fclose(f);
-        return NULL;
+        return 1;
     }
 
-    // Проверяем соответствует ли размер картинки размеру видео
+    /* Проверяем соответствует ли размер картинки размеру видео */
     if ((bmPheader.biWidth != width) || (bmPheader.biHeight != height)) {
         printf("Размер картинки не соответствует размеру видео !\n");
         fclose(f);
-        return NULL;
+        return 1;
     }
 
-    // Считывает (пропускаем) таблицу цветов
+    /* Считывает (пропускаем) таблицу цветов */
     uint8_t *color_header = (uint8_t *)malloc(66);
     if (!color_header) {
         printf("Ошибка при выделении памяти !\n");
         fclose(f);
         f = NULL;
-        return NULL;
+        return 1;
     }
     fread(color_header, 1, 66,f);
 
-    // Выделяем память под картинку
-    uint8_t *img_rgb = (uint8_t *)malloc((size_t)(bmPheader.biWidth * bmPheader.biHeight * 3));
-    if (!img_rgb) {
-        printf("Ошибка при выделении памяти !\n");
-        return NULL;
-    }
-    // Считываем картинку, преобразовываем в rgb и переворачиваем
+    /* После всех действий проверим зиписалось ли что нибудь */
+    *img_rgb = '\0';
+
+    /* Считываем картинку, преобразовываем в rgb и переворачиваем */
     int64_t i,j;
     uint8_t *tmp_rbg = (uint8_t *)malloc(sizeof(uint8_t)*3);
     if (!tmp_rbg) {
         printf("Ошибка при выделении памяти !\n");
-        return NULL;
+        return 1;
     }
 
     for (i=bmPheader.biHeight-1; i >= 0; i--)
@@ -150,7 +146,13 @@ uint8_t * load_bmp(char *pic_name, int32_t width, int32_t height) {
     free(color_header);
     color_header = NULL;
 
-    return img_rgb;
+    /* Проверяем на запись */
+    if (*img_rgb == '\0') {
+        printf("Ошибка записи !\n");
+        return 1;
+    }
+
+    return 0;
 }
 
 /**
@@ -162,7 +164,7 @@ uint8_t * load_bmp(char *pic_name, int32_t width, int32_t height) {
  * @param width
  * @param height
  */
-uint8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_steam, char *output_name_stream, int32_t width, int32_t height) {
+int8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_steam, char *output_name_stream, int32_t width, int32_t height) {
     /**
      * Открытие входного и создание выходного потока
      */
@@ -196,7 +198,7 @@ uint8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_st
         fclose(output_stream);
         output_stream = NULL;
 
-        return NULL;
+        return 1;
     }
     uint8_t *frame = (uint8_t *)malloc((size_t)(width*height*3));
     if (!frame) {
@@ -208,7 +210,7 @@ uint8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_st
         fclose(output_stream);
         output_stream = NULL;
 
-        return NULL;
+        return 1;
     }
 
     /**
@@ -397,27 +399,46 @@ int main(int argc, char *argv[]) {
     /**
      * Загрузка картинки
      */
-    uint8_t *img_rgb = load_bmp(pic_name, width, height);
-    if (!img_rgb) return 0;
+    /* Выделяем память под картинку в rgb */
+    uint8_t *img_rgb = (uint8_t *)malloc((size_t)(width * height * 3));
+    if (!img_rgb) {
+        printf("Ошибка при выделении памяти !\n");
+        return 1;
+    }
+
+    int8_t ret_lb = load_bmp(img_rgb, pic_name, width, height);
+    if (ret_lb) {
+        free(img_rgb);
+        img_rgb = NULL;
+        return 0;
+    }
     else printf("Картинка загружена.\n");
 
     /**
      * Преобразование картинки в yuv
      */
-    uint8_t *img_yuv = rgb_in_yuv(img_rgb, width, height);
+    /* Выделяем память под картинку в yuv */
+    uint8_t *img_yuv = (uint8_t *)malloc((size_t)(width * height * 3));
     if (!img_yuv) {
+        printf("Ошибка при выделении памяти !\n");
         free(img_rgb);
         img_rgb = NULL;
-
         return 0;
     }
 
+    rgb_in_yuv(img_rgb, img_yuv, width, height);
 
     /**
      * Обработка видео потока (вставка картинки)
      */
-    uint8_t iiv = img_insert_video(img_yuv, img_rgb, input_name_steam, output_name_stream, width, height);
-    if (iiv) return 0;
+    int8_t ret_iiv = img_insert_video(img_yuv, img_rgb, input_name_steam, output_name_stream, width, height);
+    if (ret_iiv) {
+        free(img_rgb);
+        img_rgb = NULL;
+        free(img_yuv);
+        img_yuv = NULL;
+        return 0;
+    }
     else printf("ОК.\n");
 
     free(img_rgb);
