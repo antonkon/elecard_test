@@ -19,6 +19,32 @@ void prov(uint8_t *frame, int width) {
     printf("\n");
 }
 
+void prov2(uint8_t *frame, int width, int height) {
+    int i,j;
+    // Проверка правельности пеобразования
+    for(i=0;i<3;i++) {
+        for(j=0;j<20;j++) {
+            printf("%d\t", frame[j+i*width]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+    for(i=0;i<3;i++) {
+        for(j=0;j<20;j++) {
+            printf("%d\t", frame[width*height+i*width+j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+    for(i=0;i<3;i++) {
+        for(j=0;j<20;j++) {
+            printf("%d\t", frame[width*height + width*height/2 + i*width + j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
 /**
  * Вывод картинки в YUV формате в файл
  */
@@ -49,4 +75,19 @@ void prov_file(uint8_t *frame, int width, int height) {
     }
     fclose(f2);
     f2 = NULL;
+}
+
+void prov_file2(uint8_t *frame, int width, int height) {
+    int j;
+    FILE *f2 = fopen("4.yuv", "wb");
+    if (f2 == NULL) {
+        printf("Ошибка создания файла !\n");
+        return;
+    }
+
+    int64_t i;
+
+    for(i=0; i<(int64_t)(height*width*1.5); i++) {
+        fwrite(&frame[i], 1, 1, f2);
+    }
 }

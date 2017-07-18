@@ -27,5 +27,20 @@ void prov(uint8_t *frame, int width);
  */
 void prov_file(uint8_t *frame, int width, int height);
 
+/**
+ *
+ * @param frame
+ * @param width
+ * @param height
+ */
+void prov_file2(uint8_t *frame, int width, int height);
+
+/**
+ *
+ * @param frame
+ * @param width
+ * @param height
+ */
+void prov2(uint8_t *frame, int width, int height);
 
 #endif //TS1_1_DEBUG_H

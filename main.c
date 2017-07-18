@@ -1,5 +1,4 @@
 #include "main.h"
-#include "debug.h"
 
 /**
  * Функция перечёта rgb в yuv
@@ -11,8 +10,8 @@
  */
 void png_in_yuv_pixel(uint8_t r, uint8_t g, uint8_t b, yuv *pix) {
     pix->y = 0.299 * r + 0.587 * g + 0.114 * b;
-    pix->u = -0.169 * r - 0.331 * g + 0.500 * b;
-    pix->v = 0.500 * r - 0.419 * g - 0.081 * b;
+    pix->u = -0.169 * r - 0.331 * g + 0.500 * b + 128;
+    pix->v = 0.500 * r - 0.419 * g - 0.081 * b + 128;
     return;
 }
 
@@ -25,43 +24,24 @@ void png_in_yuv_pixel(uint8_t r, uint8_t g, uint8_t b, yuv *pix) {
  * @param height
  */
 void rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t height) {
-    int64_t i,j;
+    int64_t i,j,k=0,l;
     yuv pix;
 
     /**
      * Преобразование картинки из RGB в YUV
      */
     for(i=0; i<height; i++) {
-        for(j=0; j<width*3; j+=3){
+        for(j=0,l=0; j<width*3; j+=3,l++){
             png_in_yuv_pixel(img_rgb[j+i*width*3], img_rgb[j+i*width*3+1], img_rgb[j+i*width*3+2], &pix);
-            img_yuv[j+i*width*3] = pix.y;
-            img_yuv[j+i*width*3+1] = pix.u;
-            img_yuv[j+i*width*3+2] = pix.v;
+            img_yuv[l+i*width] = pix.y;
+            if ((j % 2) == 0 && (i % 2) == 0){
+                img_yuv[width*height+k] = pix.u;
+                img_yuv[width*height+(width*height)/4+k] = pix.v;
+                k++;
+            }
         }
-    }
 
-    FILE *f2 = fopen("3.yuv", "wb");
-    if (f2 == NULL) {
-        printf("Ошибка создания файла !\n");
-        return;
     }
-    for(i=0; i<height; i++) {
-        for(j=0; j<width*3; j+=3){
-            fwrite(&img_yuv[j+i*width*3], 1, 1, f2);
-        }
-    }
-    for(i=0; i<height; i+=2) {
-        for(j=1; j<width*3; j+=3*2){
-            fwrite(&img_yuv[j+i*width*3], 1, 1, f2);
-        }
-    }
-    for(i=0; i<height; i+=2) {
-        for(j=2; j<width*3; j+=3*2){
-            fwrite(&img_yuv[j+i*width*3], 1, 1, f2);
-        }
-    }
-    fclose(f2);
-    f2 = NULL;
 
     return;
 }
@@ -185,26 +165,11 @@ int8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_ste
     }
 
     /**
-     * Переменные для кадра
-     *
-     * frame_tmp - считанный кадр
-     * frame - преобразованный кадр
+     * Переменная для кадра
      */
-    uint8_t *frame_tmp = (uint8_t *)malloc((size_t)(width*height*3));
-    if (!frame_tmp) {
-        printf("Ошибка при выделении памяти !\n");
-        fclose(input_stream);
-        input_stream = NULL;
-        fclose(output_stream);
-        output_stream = NULL;
-
-        return 1;
-    }
-    uint8_t *frame = (uint8_t *)malloc((size_t)(width*height*3));
+    uint8_t *frame = (uint8_t *)malloc((size_t)(width*height + width*height/2));
     if (!frame) {
         printf("Ошибка при выделении памяти !\n");
-        free(frame_tmp);
-        frame_tmp = NULL;
         fclose(input_stream);
         input_stream = NULL;
         fclose(output_stream);
@@ -212,98 +177,52 @@ int8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_ste
 
         return 1;
     }
-
-    /**
-     * Считывание кадра
-     */
+    
     while (1) {
-        int32_t i, j, k, l;
+        int32_t i, j;
 
         /**
-         * Считывание Y
+         * Считывание кадра
          */
-        fread(frame_tmp, (size_t) (width * height), 1, input_stream);
+        fread(frame, (size_t) (width * height + width*height/2), 1, input_stream);
+
         /**
          * Проверка на конец файла (проверка делается не в while, что бы не добавлялся лишний кадр)
          */
         if (feof(input_stream)) break;
 
-        for (i = 0; i < height; i++)
-            for (j = 0, k = 0; j < width * 3; j += 3, k++) {
-                frame[j + i * width * 3] = frame_tmp[k + i * width];
-            }
-
-        /**
-         * Считывание U
-         */
-        fread(frame_tmp, (size_t) ((width / 2) * (height / 2)), 1, input_stream);
-        for (i = 0, l = 0; i < height && (l + 1) < height; i += 2, l++)
-            for (j = 1, k = 0; j < width * 3; j += 3 * 2, k++) {
-                frame[j + i * width * 3] = frame_tmp[k + l * width / 2];
-                frame[j + 3 + i * width * 3] = frame_tmp[k + l * width / 2];
-                frame[j + (i + 1) * width * 3] = frame_tmp[k + l * width / 2];
-                frame[j + 3 + (i + 1) * width * 3] = frame_tmp[k + l * width / 2];
-            }
-
-        /**
-         * Считывание V
-         */
-        fread(frame_tmp, (size_t) ((width / 2) * (height / 2)), 1, input_stream);
-        for (i = 0, l = 0; i < height && (l + 1) < height; i += 2, l++)
-            for (j = 2, k = 0; j < width * 3; j += 3 * 2, k++) {
-                frame[j + i * width * 3] = frame_tmp[k + l * width / 2];
-                frame[j + 3 + i * width * 3] = frame_tmp[k + l * width / 2];
-                frame[j + (i + 1) * width * 3] = frame_tmp[k + l * width / 2];
-                frame[j + 3 + (i + 1) * width * 3] = frame_tmp[k + l * width / 2];
-            }
-        /**
-         * Кадр загружен
-         */
-
         /**
          * Наложение изображении
          */
-        for (i = 0; i < height; i++)
-            for (j=0; j < width*3; j+=3) {
-                if (30  < img_rgb[j+i*width*3]            && img_rgb[j+i*width*3]           < 40)
-                if (210 < img_rgb[(j + 1) + i * width*3]  && img_rgb[(j + 1) + i * width*3] < 220)
-                if (240 < img_rgb[(j + 2) + i * width*3]  && img_rgb[(j + 2) + i * width*3] < 250) {
+        int32_t l,k;
+        for (i=0,k=0; i < height; i++) {
+            for (j=0, l=0; j < width; j++) {
+                if ((height/3 > i)&&(width/3 > j)) {
                     /**
-                     * Записываем исходный цвет кадра
+                     * Записываем цвет пикселя из RGB картинки
                      */
-                    continue;
-                }
+                    frame[j+i*width] = img_yuv[j+i*width];
 
+                    frame[width*height + l + k*(width/2)] = img_yuv[width*height + l + k*(width/2)];
+                    frame[width*height + (width*height)/4 + l + k*(width/2)] =
+                            img_yuv[width*height + (width*height)/4 + l + k*(width/2)];
+                    if ((j % 2) == 0) l++;
+                }
                 /**
-                 * Записываем цвет пикселя из RGB картинки
+                 * Остаётся исходный цвет кадра
                  */
-                frame[j+i*width*3] = img_yuv[j+i*width*3];
-                frame[(j+1)+i*width*3] = img_yuv[(j+1)+i*width*3];
-                frame[(j+2)+i*width*3] = img_yuv[(j+2)+i*width*3];
             }
+            if ((i % 2) == 0) k++;
+        }
 
         /**
          * Сохранение кадра
          */
-        for (i = 0; i < height; i++) {
-            for (j = 0; j < width * 3; j += 3) {
-                fwrite(&frame[j + i * width * 3], 1, 1, output_stream);
-            }
-        }
-        for (i = 0; i < height; i += 2) {
-            for (j = 1; j < width * 3; j += 3 * 2) {
-                fwrite(&frame[j + i * width * 3], 1, 1, output_stream);
-            }
-        }
-        for (i = 0; i < height; i += 2) {
-            for (j = 2; j < width * 3; j += 3 * 2) {
-                fwrite(&frame[j + i * width * 3], 1, 1, output_stream);
-            }
+        for (i = 0; i < (int64_t)(height*width*1.5); i++) {
+            fwrite(&frame[i], 1, 1, output_stream);
         }
     }
 
-    free(frame_tmp);
-    frame_tmp = NULL;
     free(frame);
     frame = NULL;
     fclose(input_stream);
