@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <time.h>
 
 /**
  * Функция преобразования из rgb в yuv цветовое пространство

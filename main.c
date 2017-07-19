@@ -1,18 +1,24 @@
 #include "main.h"
 
-/**
- * Функция перечёта rgb в yuv
- *
- * @param r
- * @param g
- * @param b
- * @param pix
- */
-void png_in_yuv_pixel(uint8_t r, uint8_t g, uint8_t b, yuv *pix) {
-    pix->y = 0.299 * r + 0.587 * g + 0.114 * b;
-    pix->u = -0.169 * r - 0.331 * g + 0.500 * b + 128;
-    pix->v = 0.500 * r - 0.419 * g - 0.081 * b + 128;
-    return;
+
+
+int8_t png_in_yuv_Multi(uint8_t *img_rgb, uint8_t *img_y, uint8_t *img_u, uint8_t *img_v, int32_t width, int32_t height,
+                    int64_t length) {
+    int32_t i,j,l;
+    yuv pix;
+
+    for(i=0,j=0,l=0; j<length; i+=3,j++) {
+        pix.y = 0.299 * img_rgb[i] + 0.587 * img_rgb[i+1] + 0.114 * img_rgb[i+2];
+        pix.u = -0.169 * img_rgb[i] - 0.331 * img_rgb[i+1] + 0.500 * img_rgb[i+2] + 128;
+        pix.v = 0.500 * img_rgb[i] - 0.419 * img_rgb[i+1] - 0.081 * img_rgb[i+2] + 128;
+
+        img_y[j] = pix.y;
+        if ((j % 2) == 0) {
+            img_u[l] = pix.u;
+            img_v[l] = pix.v;
+            l++;
+        }
+    }
 }
 
 /**
@@ -24,23 +30,14 @@ void png_in_yuv_pixel(uint8_t r, uint8_t g, uint8_t b, yuv *pix) {
  * @param height
  */
 void rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t height) {
-    int64_t i,j,k=0,l;
-    yuv pix;
+    int32_t i;
 
     /**
-     * Преобразование картинки из RGB в YUV
-     */
-    for(i=0; i<height; i++) {
-        for(j=0,l=0; j<width*3; j+=3,l++){
-            png_in_yuv_pixel(img_rgb[j+i*width*3], img_rgb[j+i*width*3+1], img_rgb[j+i*width*3+2], &pix);
-            img_yuv[l+i*width] = pix.y;
-            if ((j % 2) == 0 && (i % 2) == 0){
-                img_yuv[width*height+k] = pix.u;
-                img_yuv[width*height+(width*height)/4+k] = pix.v;
-                k++;
-            }
-        }
-
+      * Преобразование картинки из RGB в YUV
+      */
+    for(i=0; i<height/6; i++) {
+        png_in_yuv_Multi(img_rgb+width*3*6*i, img_yuv+width*6*i, img_yuv+width*height+(width/2)*3*i,
+                     img_yuv+width*height+(width*height)/4+(width/2)*3*i, width, height, width*6);
     }
 
     return;
@@ -177,7 +174,7 @@ int8_t img_insert_video(uint8_t *img_yuv, uint8_t *img_rgb, char *input_name_ste
 
         return 1;
     }
-    
+
     while (1) {
         int32_t i, j;
 
@@ -345,7 +342,16 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    /**
+     * Измерение времени выполнения
+     */
+    struct timespec m1, m2;
+    clock_gettime (CLOCK_REALTIME, &m1);
+
     rgb_in_yuv(img_rgb, img_yuv, width, height);
+
+    clock_gettime (CLOCK_REALTIME, &m2);
+    printf("%lf мс\n",(double)(1000000000*(m2.tv_sec - m1.tv_sec)+(m2.tv_nsec - m1.tv_nsec))/1000000);
 
     /**
      * Обработка видео потока (вставка картинки)

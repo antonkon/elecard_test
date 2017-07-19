@@ -38,7 +38,7 @@ void prov2(uint8_t *frame, int width, int height) {
     printf("\n");
     for(i=0;i<3;i++) {
         for(j=0;j<20;j++) {
-            printf("%d\t", frame[width*height + width*height/2 + i*width + j]);
+            printf("%d\t", frame[width*height + width*height/4 + i*width + j]);
         }
         printf("\n");
     }
