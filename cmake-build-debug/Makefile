@@ -123,6 +123,33 @@ ts1_1/fast:
 	$(MAKE) -f CMakeFiles/ts1_1.dir/build.make CMakeFiles/ts1_1.dir/build
 .PHONY : ts1_1/fast
 
+debug.o: debug.c.o
+
+.PHONY : debug.o
+
+# target to build an object file
+debug.c.o:
+	$(MAKE) -f CMakeFiles/ts1_1.dir/build.make CMakeFiles/ts1_1.dir/debug.c.o
+.PHONY : debug.c.o
+
+debug.i: debug.c.i
+
+.PHONY : debug.i
+
+# target to preprocess a source file
+debug.c.i:
+	$(MAKE) -f CMakeFiles/ts1_1.dir/build.make CMakeFiles/ts1_1.dir/debug.c.i
+.PHONY : debug.c.i
+
+debug.s: debug.c.s
+
+.PHONY : debug.s
+
+# target to generate assembly for a file
+debug.c.s:
+	$(MAKE) -f CMakeFiles/ts1_1.dir/build.make CMakeFiles/ts1_1.dir/debug.c.s
+.PHONY : debug.c.s
+
 main.o: main.c.o
 
 .PHONY : main.o
@@ -159,6 +186,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... ts1_1"
+	@echo "... debug.o"
+	@echo "... debug.i"
+	@echo "... debug.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

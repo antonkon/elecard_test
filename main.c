@@ -1,21 +1,22 @@
 #include "main.h"
+#include "debug.h"
 
-
-
-int8_t png_in_yuv_Multi(uint8_t *img_rgb, uint8_t *img_y, uint8_t *img_u, uint8_t *img_v, int32_t width, int32_t height,
-                    int64_t length) {
-    int32_t i,j,l;
+void *png_in_yuv_Multi(void *arg) {
+    /* uint8_t *img_rgb, uint8_t *img_y, uint8_t *img_u, uint8_t *img_v, int64_t length */
+    sem_post(&sem);
+    int32_t i,j,l=0;
     yuv pix;
+    /* arg_multi arg_loc = * ((arg_multi*)arg); - либо, можно сделать через локальную переменную */
 
-    for(i=0,j=0,l=0; j<length; i+=3,j++) {
-        pix.y = 0.299 * img_rgb[i] + 0.587 * img_rgb[i+1] + 0.114 * img_rgb[i+2];
-        pix.u = -0.169 * img_rgb[i] - 0.331 * img_rgb[i+1] + 0.500 * img_rgb[i+2] + 128;
-        pix.v = 0.500 * img_rgb[i] - 0.419 * img_rgb[i+1] - 0.081 * img_rgb[i+2] + 128;
+    for(i=0,j=0,l=0; j < ((arg_multi*)arg)->length; i+=3,j++) {
+        pix.y = 0.299 * ((arg_multi*)arg)->img_rgb[i] + 0.587 * ((arg_multi*)arg)->img_rgb[i+1] + 0.114 * ((arg_multi*)arg)->img_rgb[i+2];
+        pix.u = -0.169 * ((arg_multi*)arg)->img_rgb[i] - 0.331 * ((arg_multi*)arg)->img_rgb[i+1] + 0.500 * ((arg_multi*)arg)->img_rgb[i+2] + 128;
+        pix.v = 0.500 * ((arg_multi*)arg)->img_rgb[i] - 0.419 * ((arg_multi*)arg)->img_rgb[i+1] - 0.081 * ((arg_multi*)arg)->img_rgb[i+2] + 128;
 
-        img_y[j] = pix.y;
+        ((arg_multi*)arg)->img_y[j] = pix.y;
         if ((j % 2) == 0) {
-            img_u[l] = pix.u;
-            img_v[l] = pix.v;
+            ((arg_multi*)arg)->img_u[l] = pix.u;
+            ((arg_multi*)arg)->img_v[l] = pix.v;
             l++;
         }
     }
@@ -29,18 +30,74 @@ int8_t png_in_yuv_Multi(uint8_t *img_rgb, uint8_t *img_y, uint8_t *img_u, uint8_
  * @param width
  * @param height
  */
-void rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t height) {
-    int32_t i;
+int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t height) {
+    int32_t i, result,j,k=0;
+    arg_multi arg;
+    int32_t count_thread=1;
+    pthread_t t[count_thread];
+
+    sem_init(&sem, 0, 0);
 
     /**
       * Преобразование картинки из RGB в YUV
       */
-    for(i=0; i<height/6; i++) {
-        png_in_yuv_Multi(img_rgb+width*3*6*i, img_yuv+width*6*i, img_yuv+width*height+(width/2)*3*i,
-                     img_yuv+width*height+(width*height)/4+(width/2)*3*i, width, height, width*6);
+    for(i=0; i<(int32_t)(height/6); i++) {
+        arg.img_rgb = img_rgb+width*3*6*i;
+        arg.img_y = img_yuv+width*6*i;
+        arg.img_u = img_yuv+width*height+(width/2)*3*i;
+        arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*3*i;
+        arg.length = width*6;
+
+        result = pthread_create(&t[k], NULL, png_in_yuv_Multi, &arg);
+        if (result != 0) {
+            printf("Ошибка при создании потока !\n");
+            sem_destroy(&sem);
+            return 1;
+        }
+        k++;
+        if (k>=count_thread) {
+            k = 0;
+            for(j=0; j<count_thread; j++) {
+                result = pthread_join(t[j], NULL);
+                if (result != 0) {
+                    printf("Ошибка в ожидании потока !\n");
+                    sem_destroy(&sem);
+                    return 1;
+                }
+            }
+
+        }
+        sem_wait(&sem);
     }
 
-    return;
+    if (height%6 != 0) {
+        arg.img_rgb = img_rgb+width*3*6*i;
+        arg.img_y = img_yuv+width*6*i;
+        arg.img_u = img_yuv+width*height+(width/2)*3*i;
+        arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*3*i;
+        arg.length = width*(height%6);
+
+        result = pthread_create(&t[k], NULL, png_in_yuv_Multi, &arg);
+        if (result != 0) {
+            printf("Ошибка при создании потока !\n");
+            sem_destroy(&sem);
+            return 1;
+        }
+        k++;
+    }
+
+    for(j=0; j<k; j++) {
+        result = pthread_join(t[j], NULL);
+        if (result != 0) {
+            printf("Ошибка в ожидании потока !\n");
+            sem_destroy(&sem);
+            return 1;
+        }
+    }
+
+    sem_destroy(&sem);
+
+    return 0;
 }
 
 /**
@@ -348,9 +405,18 @@ int main(int argc, char *argv[]) {
     struct timespec m1, m2;
     clock_gettime (CLOCK_REALTIME, &m1);
 
-    rgb_in_yuv(img_rgb, img_yuv, width, height);
-
+    int8_t ret_riy = rgb_in_yuv(img_rgb, img_yuv, width, height);
     clock_gettime (CLOCK_REALTIME, &m2);
+    if (ret_riy) {
+        free(img_rgb);
+        img_rgb = NULL;
+        free(img_yuv);
+        img_yuv = NULL;
+        return 0;
+    }
+
+    prov_file2(img_yuv, width, height);
+
     printf("%lf мс\n",(double)(1000000000*(m2.tv_sec - m1.tv_sec)+(m2.tv_nsec - m1.tv_nsec))/1000000);
 
     /**
