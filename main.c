@@ -33,20 +33,21 @@ void *png_in_yuv_Multi(void *arg) {
 int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t height) {
     int32_t i, result,j,k=0;
     arg_multi arg;
-    int32_t count_thread=1;
+    int32_t count_thread=3;
     pthread_t t[count_thread];
+    int32_t lines = (int64_t)(height/3);
 
     sem_init(&sem, 0, 0);
 
     /**
       * Преобразование картинки из RGB в YUV
       */
-    for(i=0; i<(int32_t)(height/6); i++) {
-        arg.img_rgb = img_rgb+width*3*6*i;
-        arg.img_y = img_yuv+width*6*i;
-        arg.img_u = img_yuv+width*height+(width/2)*3*i;
-        arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*3*i;
-        arg.length = width*6;
+    for(i=0; i<3; i++) {
+        arg.img_rgb = img_rgb+width*3*lines*i;
+        arg.img_y = img_yuv+width*lines*i;
+        arg.img_u = img_yuv+width*height+(width/2)*(lines/2)*i;
+        arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*(lines/2)*i;
+        arg.length = width*lines;
 
         result = pthread_create(&t[k], NULL, png_in_yuv_Multi, &arg);
         if (result != 0) {
@@ -55,27 +56,16 @@ int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t hei
             return 1;
         }
         k++;
-        if (k>=count_thread) {
-            k = 0;
-            for(j=0; j<count_thread; j++) {
-                result = pthread_join(t[j], NULL);
-                if (result != 0) {
-                    printf("Ошибка в ожидании потока !\n");
-                    sem_destroy(&sem);
-                    return 1;
-                }
-            }
 
-        }
         sem_wait(&sem);
     }
 
-    if (height%6 != 0) {
-        arg.img_rgb = img_rgb+width*3*6*i;
-        arg.img_y = img_yuv+width*6*i;
-        arg.img_u = img_yuv+width*height+(width/2)*3*i;
-        arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*3*i;
-        arg.length = width*(height%6);
+    if (height%lines != 0) {
+        arg.img_rgb = img_rgb+width*3*lines*i;
+        arg.img_y = img_yuv+width*lines*i;
+        arg.img_u = img_yuv+width*height+(width/2)*(lines/2)*i;
+        arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*(lines/2)*i;
+        arg.length = width*(height%3);
 
         result = pthread_create(&t[k], NULL, png_in_yuv_Multi, &arg);
         if (result != 0) {
