@@ -44,7 +44,7 @@ void *rgb_in_yuv_Multi(void *arg) {
 int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t height) {
     int32_t i, result,j,k=0;
     arg_multi arg;
-    int32_t count_thread=3;
+    int32_t count_thread=2;
     pthread_t t[count_thread];
     int32_t lines = 70;
 
@@ -69,10 +69,11 @@ int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t hei
         }
         k++;
 
-        if (k>=1) {
+        if (k>=count_thread) {
             k = 0;
-            for(j=0; j<1; j++) {
+            for(j=0; j<count_thread; j++) {
                 result = pthread_join(t[j], NULL);
+                t[j] = NULL;
                 if (result != 0) {
                     printf("Ошибка в ожидании потока !\n");
                     sem_destroy(&sem);
@@ -104,6 +105,7 @@ int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t hei
 
     for(j=0; j<k; j++) {
         result = pthread_join(t[j], NULL);
+        t[j] = NULL;
         if (result != 0) {
             printf("Ошибка в ожидании потока !\n");
             sem_destroy(&sem);
