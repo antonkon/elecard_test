@@ -1,4 +1,4 @@
-# Install script for directory: /media/radio/150b40d7-ede2-48e5-9e93-d81ede6c156c/work/elecard/ts1.1
+# Install script for directory: /media/radio/eef53cd7-b357-4ff5-9dbf-0616e75e000f/work/elecard/ts1.1
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -40,5 +40,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/media/radio/150b40d7-ede2-48e5-9e93-d81ede6c156c/work/elecard/ts1.1/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/media/radio/eef53cd7-b357-4ff5-9dbf-0616e75e000f/work/elecard/ts1.1/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

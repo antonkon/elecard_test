@@ -1,7 +1,13 @@
 #include "main.h"
 #include "debug.h"
 
-void *png_in_yuv_Multi(void *arg) {
+/**
+ * Функция преобразования rgb в yuv, многопоточная
+ *
+ * @param arg
+ * @return
+ */
+void *rgb_in_yuv_Multi(void *arg) {
     /* uint8_t *img_rgb, uint8_t *img_y, uint8_t *img_u, uint8_t *img_v, int64_t length */
     sem_post(&sem);
     int32_t i,j,l=0;
@@ -35,27 +41,42 @@ int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t hei
     arg_multi arg;
     int32_t count_thread=3;
     pthread_t t[count_thread];
-    int32_t lines = (int64_t)(height/3);
+    int32_t lines = 70;
 
     sem_init(&sem, 0, 0);
 
     /**
       * Преобразование картинки из RGB в YUV
       */
-    for(i=0; i<3; i++) {
+    for(i=0; i<(height/lines); i++) {
         arg.img_rgb = img_rgb+width*3*lines*i;
         arg.img_y = img_yuv+width*lines*i;
         arg.img_u = img_yuv+width*height+(width/2)*(lines/2)*i;
         arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*(lines/2)*i;
         arg.length = width*lines;
 
-        result = pthread_create(&t[k], NULL, png_in_yuv_Multi, &arg);
+        result = pthread_create(&t[k], NULL, rgb_in_yuv_Multi, &arg);
         if (result != 0) {
             printf("Ошибка при создании потока !\n");
             sem_destroy(&sem);
             return 1;
         }
         k++;
+
+//        prov_file2(img_yuv, width, height);
+
+        if (k == count_thread) {
+            for(j=0; j<k; j++) {
+                result = pthread_join(t[j], NULL);
+                if (result != 0) {
+                    printf("Ошибка в ожидании потока !\n");
+                    sem_destroy(&sem);
+                    return 1;
+                }
+            }
+        k=0;
+        }
+
 
         sem_wait(&sem);
     }
@@ -65,9 +86,9 @@ int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t hei
         arg.img_y = img_yuv+width*lines*i;
         arg.img_u = img_yuv+width*height+(width/2)*(lines/2)*i;
         arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*(lines/2)*i;
-        arg.length = width*(height%3);
+        arg.length = width*(height%lines);
 
-        result = pthread_create(&t[k], NULL, png_in_yuv_Multi, &arg);
+        result = pthread_create(&t[k], NULL, rgb_in_yuv_Multi, &arg);
         if (result != 0) {
             printf("Ошибка при создании потока !\n");
             sem_destroy(&sem);
@@ -381,7 +402,7 @@ int main(int argc, char *argv[]) {
      * Преобразование картинки в yuv
      */
     /* Выделяем память под картинку в yuv */
-    uint8_t *img_yuv = (uint8_t *)malloc((size_t)(width * height * 3));
+    uint8_t *img_yuv = (uint8_t *)malloc((size_t)(width * height * 1.5));
     if (!img_yuv) {
         printf("Ошибка при выделении памяти !\n");
         free(img_rgb);

@@ -86,7 +86,7 @@ void prov_file2(uint8_t *frame, int width, int height) {
     }
 
     int64_t i;
-
+//    printf("%d\n", (int64_t)(height*width*1.5));
     for(i=0; i<(int64_t)(height*width*1.5); i++) {
         fwrite(&frame[i], 1, 1, f2);
     }
