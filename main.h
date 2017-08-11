@@ -29,6 +29,7 @@ typedef struct {
     uint8_t *img_u;
     uint8_t *img_v;
     int64_t length;
+    int32_t width;
 } arg_multi;
 
 /**

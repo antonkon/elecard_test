@@ -77,17 +77,17 @@ void prov_file(uint8_t *frame, int width, int height) {
     f2 = NULL;
 }
 
-void prov_file2(uint8_t *frame, int width, int height) {
+void prov_file2(uint8_t *frame, int64_t width, int64_t height) {
     int j;
-    FILE *f2 = fopen("4.yuv", "wb");
+    FILE *f2 = fopen("1.yuv", "wb");
     if (f2 == NULL) {
         printf("Ошибка создания файла !\n");
         return;
     }
 
-    int64_t i;
+    int32_t i;
 //    printf("%d\n", (int64_t)(height*width*1.5));
-    for(i=0; i<(int64_t)(height*width*1.5); i++) {
+    for(i=0; i<(height*width*1.5); i++) {
         fwrite(&frame[i], 1, 1, f2);
     }
 }

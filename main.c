@@ -15,16 +15,21 @@ void *rgb_in_yuv_Multi(void *arg) {
     /* arg_multi arg_loc = * ((arg_multi*)arg); - либо, можно сделать через локальную переменную */
 
     for(i=0,j=0,l=0; j < ((arg_multi*)arg)->length; i+=3,j++) {
+        int x1 = ((arg_multi*)arg)->img_rgb[i];
+        int x2 = ((arg_multi*)arg)->img_rgb[i+1];
+        int x3 = ((arg_multi*)arg)->img_rgb[i+2];
+
         pix.y = 0.299 * ((arg_multi*)arg)->img_rgb[i] + 0.587 * ((arg_multi*)arg)->img_rgb[i+1] + 0.114 * ((arg_multi*)arg)->img_rgb[i+2];
         pix.u = -0.169 * ((arg_multi*)arg)->img_rgb[i] - 0.331 * ((arg_multi*)arg)->img_rgb[i+1] + 0.500 * ((arg_multi*)arg)->img_rgb[i+2] + 128;
         pix.v = 0.500 * ((arg_multi*)arg)->img_rgb[i] - 0.419 * ((arg_multi*)arg)->img_rgb[i+1] - 0.081 * ((arg_multi*)arg)->img_rgb[i+2] + 128;
 
         ((arg_multi*)arg)->img_y[j] = pix.y;
-        if ((j % 2) == 0) {
-            ((arg_multi*)arg)->img_u[l] = pix.u;
-            ((arg_multi*)arg)->img_v[l] = pix.v;
-            l++;
-        }
+        if ((int64_t)(j/((arg_multi*)arg)->width) % 2 == 0)
+            if ((j % 2) == 0) {
+                ((arg_multi*)arg)->img_u[l] = pix.u;
+                ((arg_multi*)arg)->img_v[l] = pix.v;
+                l++;
+            }
     }
 }
 
@@ -54,6 +59,7 @@ int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t hei
         arg.img_u = img_yuv+width*height+(width/2)*(lines/2)*i;
         arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*(lines/2)*i;
         arg.length = width*lines;
+        arg.width = width;
 
         result = pthread_create(&t[k], NULL, rgb_in_yuv_Multi, &arg);
         if (result != 0) {
@@ -63,10 +69,9 @@ int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t hei
         }
         k++;
 
-//        prov_file2(img_yuv, width, height);
-
-        if (k == count_thread) {
-            for(j=0; j<k; j++) {
+        if (k>=1) {
+            k = 0;
+            for(j=0; j<1; j++) {
                 result = pthread_join(t[j], NULL);
                 if (result != 0) {
                     printf("Ошибка в ожидании потока !\n");
@@ -74,9 +79,8 @@ int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t hei
                     return 1;
                 }
             }
-        k=0;
-        }
 
+        }
 
         sem_wait(&sem);
     }
@@ -87,6 +91,7 @@ int8_t rgb_in_yuv(uint8_t *img_rgb, uint8_t *img_yuv, int32_t width, int32_t hei
         arg.img_u = img_yuv+width*height+(width/2)*(lines/2)*i;
         arg.img_v = img_yuv+width*height+(width*height)/4+(width/2)*(lines/2)*i;
         arg.length = width*(height%lines);
+        arg.width = width;
 
         result = pthread_create(&t[k], NULL, rgb_in_yuv_Multi, &arg);
         if (result != 0) {
@@ -402,7 +407,7 @@ int main(int argc, char *argv[]) {
      * Преобразование картинки в yuv
      */
     /* Выделяем память под картинку в yuv */
-    uint8_t *img_yuv = (uint8_t *)malloc((size_t)(width * height * 1.5));
+    uint8_t *img_yuv = (uint8_t *)malloc((size_t)(width * height * 2));
     if (!img_yuv) {
         printf("Ошибка при выделении памяти !\n");
         free(img_rgb);

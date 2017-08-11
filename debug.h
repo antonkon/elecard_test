@@ -33,7 +33,7 @@ void prov_file(uint8_t *frame, int width, int height);
  * @param width
  * @param height
  */
-void prov_file2(uint8_t *frame, int width, int height);
+void prov_file2(uint8_t *frame, int64_t width, int64_t height);
 
 /**
  *
